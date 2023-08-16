@@ -167,24 +167,100 @@ class Program
         var tables = tablesPre.Where(x => x.TextContent.Contains(", AL"));
         // Console.WriteLine($"Found {tables.Length} tables.");
         int total = 0;
+        CreateFolder();
         foreach (var table in tables)
         {
             // Console.WriteLine(table.OuterHtml);
             total++;
-            Console.WriteLine(table.ParentElement.OuterHtml);
+            ProcessTable((IHtmlDivElement)table);
             if(total>0)
             {
                 break;
             }
-            // ProcessTable((IHtmlTableElement)table);
         }
         Console.WriteLine($"Found {total} tables.");
     }
 
-    static void ProcessTable(IHtmlTableElement table)
+    static void ProcessTable(IHtmlDivElement table)
     {
+        var name = table.ParentElement.QuerySelectorAll("div a strong")[0];
+        var phone = table.ParentElement.QuerySelectorAll("div a");
+        var address = table.ParentElement.QuerySelectorAll("div br");
+        var facebook = table.ParentElement.QuerySelectorAll("div a img");
+        int counter3 = 0;
+        foreach(var facebooks in facebook)
+        {
+            counter3++;
+            Console.WriteLine(facebooks.OuterHtml);
+            Console.WriteLine(facebooks.ParentElement.GetAttribute("href"));
+        }
+
+        int counter2 = 0;
+        foreach(var addresses in address)
+        {
+            counter2++;
+            Console.WriteLine(RemoveExtraSpaces(addresses.ParentElement.TextContent.Trim()));
+        }
+        Console.WriteLine($"total address is {counter2}");
+        int counter = 0;
+        foreach(var phones in phone)
+        {
+            counter++;
+            if(IsValidPhoneNumberFormat(phones.TextContent))
+            {
+                Console.WriteLine("success");
+                Console.WriteLine(phones.TextContent);
+            }
+        }
+        Console.WriteLine($"total is {counter}");
         Console.WriteLine("Processing table...");
-        Console.WriteLine(table.OuterHtml);
+        Console.WriteLine(name.TextContent);
         Console.WriteLine();
+
+        string csvFilePath = "State Antique Shop Data/Alabama_data.csv";
+
+        //writing to csv
+        using (StreamWriter writer = new StreamWriter(csvFilePath, true))
+        {
+            writer.WriteLine("Name,Phone,Address,Facebook");
+            // writer.WriteLine($"");
+        }
+    }
+
+    static void CreateFolder()
+    {
+        string folderName = "State Antique Shop Data";
+        string fileName = "Alabama_data.csv";
+
+        string relativeFolderPath = Path.Combine(Directory.GetCurrentDirectory(), folderName);
+        string filePath = Path.Combine(relativeFolderPath, fileName);
+
+        if (!Directory.Exists(relativeFolderPath))
+        {
+            Directory.CreateDirectory(relativeFolderPath);
+        }
+
+        if (!File.Exists(filePath))
+        {
+            File.Create(filePath).Close(); // Create and immediately close the file
+            Console.WriteLine($"CSV file '{fileName}' created in '{relativeFolderPath}'.");
+        }
+        else
+        {
+            Console.WriteLine($"CSV file '{fileName}' already exists in '{relativeFolderPath}'.");
+        }
+    }
+
+    static bool IsValidPhoneNumberFormat(string phoneNumber)
+    {
+        string pattern = @"^\d{3}-\d{3}-\d{4}$";
+        return Regex.IsMatch(phoneNumber, pattern);
+    }
+
+    static string RemoveExtraSpaces(string input)
+    {
+        string cleanedText = Regex.Replace(input, @"\s+", " ").Trim();
+
+        return cleanedText;
     }
 }
