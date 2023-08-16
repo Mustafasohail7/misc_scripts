@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
+using AngleSharp.Dom;
 
 class Program
 {
@@ -13,6 +14,7 @@ class Program
         try
         {
             int totalShopCount = await GetTotalShopCount();
+            // int totalShopCount = 0;
             Console.WriteLine($"Total shop count from main site: {totalShopCount}");
 
             int totalMemberCount = await CalculateTotalMemberCount();
@@ -62,7 +64,7 @@ class Program
     {
         int maxNumber = 0;
 
-        // Match all numbers
+        // Match all numbers with a coma
         MatchCollection matches = Regex.Matches(input, @"[\d,]+");
         foreach (Match match in matches)
         {
@@ -81,37 +83,45 @@ class Program
     {
         int totalMemberCount = 0;
         
-    //     string[] stateNames = {
-    // "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
-    // "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland",
-    // "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "NewHampshire", "NewJersey",
-    // "NewMexico", "NewYork", "NorthCarolina", "NorthDakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "RhodeIsland", "SouthCarolina",
-    // "SouthDakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "WestVirginia", "Wisconsin", "Wyoming"
-    // };
-        string[] stateNames = {"Alabama"};
+        string[] stateNames = {
+            "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
+            "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland",
+            "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "NewHampshire", "NewJersey",
+            "NewMexico", "NewYork", "NorthCarolina", "NorthDakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "RhodeIsland", "SouthCarolina",
+            "SouthDakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "WestVirginia", "Wisconsin", "Wyoming"
+        };
+        // string[] stateNames = {"Alabama","Alaska","Arizona","Arkansas"};
+        string[] stateCode = {
+            "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+            "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+            "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+            "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+            "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
+        };
 
         MakeCsvFile();
-
-        foreach (string stateName in stateNames)
-        {
-            Console.WriteLine($"Getting total member count from {stateName} site...");
+        CreateFolder();
+        for (int i = 0; i<stateNames.Length; i++)
+        {   
+            CreateFile(stateNames[i]);
+            Console.WriteLine($"Getting total member count from {stateNames[i]}'s site...");
             using var httpClient = new HttpClient();
-            var website = $"http://{stateName.ToLower()}antiquetrail.com";
+            var website = $"http://{stateNames[i].ToLower()}antiquetrail.com";
             var response = await httpClient.GetStringAsync(website);
             
             var parser = new HtmlParser();
             var document = await parser.ParseDocumentAsync(response);
-            ProcessStateWebsite(document);
+            ProcessStateWebsite(document,stateNames[i],stateCode[i]);
             var memberText = document.QuerySelector("h1:contains('members on')")?.TextContent;
             int memberNumber;
             if(memberText==null){
-                Console.WriteLine($"error encounted in {stateName}");
+                Console.WriteLine($"error encounted in {stateNames[i]}");
                 memberNumber = 0;
             }else{
                 memberNumber = ExtractMemberNumber(memberText);
                 Console.WriteLine($"total members present: {memberNumber}");
             }
-            WriteToCsv(stateName, memberNumber, website);
+            WriteToCsv(stateNames[i], memberNumber, website);
             totalMemberCount += memberNumber;
         }
 
@@ -131,7 +141,7 @@ class Program
 
     static void MakeCsvFile()
     {
-        string csvFilePath = "output.csv";
+        string csvFilePath = "information.csv";
 
         if (File.Exists(csvFilePath))
         {
@@ -157,97 +167,89 @@ class Program
             writer.WriteLine($"{stateName},{number},{website}");
         }
 
-        Console.WriteLine("Data written to CSV file.");
+        Console.WriteLine($"Data for {stateName} written to CSV file.");
     }
 
-    static void ProcessStateWebsite(IHtmlDocument document)
+    static void ProcessStateWebsite(IHtmlDocument document,string stateName, string stateCode)
     {
-        Console.WriteLine("Processing state website...");
+        Console.WriteLine("Processing state website for vendor information...");
         var tablesPre = document.QuerySelectorAll("table tbody tr td div table tbody tr td div div");
-        var tables = tablesPre.Where(x => x.TextContent.Contains(", AL"));
+        //getting the table content through state address
+        var tables = tablesPre.Where(x => x.TextContent.Contains($", {stateCode}"));
         // Console.WriteLine($"Found {tables.Length} tables.");
         int total = 0;
-        CreateFolder();
         foreach (var table in tables)
         {
             // Console.WriteLine(table.OuterHtml);
             total++;
-            ProcessTable((IHtmlDivElement)table);
-            if(total>0)
-            {
-                break;
-            }
+            ProcessTable((IHtmlDivElement)table,stateName);
+            // if(total>0)
+            // {
+            //     break;
+            // }
         }
-        Console.WriteLine($"Found {total} tables.");
     }
 
-    static void ProcessTable(IHtmlDivElement table)
+    static void ProcessTable(IHtmlDivElement table, string stateName)
     {
-        var name = table.ParentElement.QuerySelectorAll("div a strong")[0];
-        var phone = table.ParentElement.QuerySelectorAll("div a");
-        var address = table.ParentElement.QuerySelectorAll("div br");
-        var facebook = table.ParentElement.QuerySelectorAll("div a img");
-        int counter3 = 0;
-        foreach(var facebooks in facebook)
-        {
-            counter3++;
-            Console.WriteLine(facebooks.OuterHtml);
-            Console.WriteLine(facebooks.ParentElement.GetAttribute("href"));
+        var name = table.ParentElement?.QuerySelectorAll("div a strong")[0].TextContent;
+        if(name==null){
+            name="unavailable";
         }
 
-        int counter2 = 0;
-        foreach(var addresses in address)
+        var phones = table.ParentElement?.QuerySelectorAll("div a");
+        var phone = "not available";
+        if(phones!=null)
         {
-            counter2++;
-            Console.WriteLine(RemoveExtraSpaces(addresses.ParentElement.TextContent.Trim()));
-        }
-        Console.WriteLine($"total address is {counter2}");
-        int counter = 0;
-        foreach(var phones in phone)
-        {
-            counter++;
-            if(IsValidPhoneNumberFormat(phones.TextContent))
+            foreach(var x in phones)
             {
-                Console.WriteLine("success");
-                Console.WriteLine(phones.TextContent);
+                if(IsValidPhoneNumberFormat(x.TextContent))
+                {
+                    phone = x.TextContent;
+                }
             }
         }
-        Console.WriteLine($"total is {counter}");
-        Console.WriteLine("Processing table...");
-        Console.WriteLine(name.TextContent);
-        Console.WriteLine();
+        
 
-        string csvFilePath = "State Antique Shop Data/Alabama_data.csv";
+        var addresses = table.ParentElement?.QuerySelectorAll("div br");
+        var address = "unavailable";
+        if(addresses!=null)
+        {
+            foreach(var x in addresses)
+            {
+                var temp_addr_text = x.ParentElement?.TextContent.Trim();
+                if(temp_addr_text!=null)
+                {
+                    address = RemoveExtraSpaces(temp_addr_text);    
+                }   
+            }
+        }
+        
 
+        var socials = table.ParentElement?.QuerySelectorAll("div a img");
+        var facebook = "unavailable";
+        if(socials!=null)
+        {
+            facebook = ExtractFacebookLink(socials);
+        }
+        
+
+        string csvFilePath = $"State Antique Shop Data/{stateName}_data.csv";
         //writing to csv
         using (StreamWriter writer = new StreamWriter(csvFilePath, true))
         {
-            writer.WriteLine("Name,Phone,Address,Facebook");
-            // writer.WriteLine($"");
+            writer.WriteLine($"{name},{phone},{address},{facebook}");
         }
     }
 
     static void CreateFolder()
     {
         string folderName = "State Antique Shop Data";
-        string fileName = "Alabama_data.csv";
 
         string relativeFolderPath = Path.Combine(Directory.GetCurrentDirectory(), folderName);
-        string filePath = Path.Combine(relativeFolderPath, fileName);
-
         if (!Directory.Exists(relativeFolderPath))
         {
             Directory.CreateDirectory(relativeFolderPath);
-        }
-
-        if (!File.Exists(filePath))
-        {
-            File.Create(filePath).Close(); // Create and immediately close the file
-            Console.WriteLine($"CSV file '{fileName}' created in '{relativeFolderPath}'.");
-        }
-        else
-        {
-            Console.WriteLine($"CSV file '{fileName}' already exists in '{relativeFolderPath}'.");
         }
     }
 
@@ -260,7 +262,47 @@ class Program
     static string RemoveExtraSpaces(string input)
     {
         string cleanedText = Regex.Replace(input, @"\s+", " ").Trim();
-
+        cleanedText = cleanedText.Replace(", ", " ").Trim();
         return cleanedText;
+    }
+
+    static string ExtractFacebookLink(IHtmlCollection<IElement> SocialLinks)
+    {
+        if(SocialLinks.Any())
+        {
+            var temp_fb = SocialLinks[0].ParentElement?.GetAttribute("href");
+            if(temp_fb!=null)
+            {
+                return temp_fb;
+            }else{
+                return "unavailable";
+            }
+        }
+        else
+        {
+            return "unavailable";
+        }
+        
+    }
+
+    static void CreateFile(string state)
+    {
+        string fileName = $"{state}_data.csv";
+        string folderPath = Path.Combine(Directory.GetCurrentDirectory(),"State Antique Shop Data");
+        string filePath = Path.Combine(folderPath,fileName);
+        if (!File.Exists(filePath))
+        {
+            File.Create(filePath).Close(); // Create and immediately close the file
+            Console.WriteLine($"CSV file '{fileName}' created in '{folderPath}'.");
+        }
+        else
+        {
+            File.Delete(filePath);
+        }
+        
+        using (StreamWriter writer = new StreamWriter(filePath, true))
+        {
+            writer.WriteLine("Name,Phone,Address,Facebook");
+        }
     }
 }
