@@ -8,4 +8,4 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = python_scripts_codespace
-build_property.ProjectDir = /workspaces/python_scripts_codespace/antique_store_scraping_script/
+build_property.ProjectDir = /workspaces/python_scripts_codespace/

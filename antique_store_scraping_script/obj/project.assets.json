@@ -98,11 +98,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/workspaces/python_scripts_codespace/antique_store_scraping_script/python_scripts_codespace.csproj",
+      "projectUniqueName": "/workspaces/python_scripts_codespace/python_scripts_codespace.csproj",
       "projectName": "python_scripts_codespace",
-      "projectPath": "/workspaces/python_scripts_codespace/antique_store_scraping_script/python_scripts_codespace.csproj",
+      "projectPath": "/workspaces/python_scripts_codespace/python_scripts_codespace.csproj",
       "packagesPath": "/home/codespace/.nuget/packages/",
-      "outputPath": "/workspaces/python_scripts_codespace/antique_store_scraping_script/obj/",
+      "outputPath": "/workspaces/python_scripts_codespace/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/codespace/.nuget/NuGet/NuGet.Config"
