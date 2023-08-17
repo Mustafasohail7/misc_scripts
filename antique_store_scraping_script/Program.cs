@@ -82,15 +82,7 @@ class Program
     static async Task<int> CalculateTotalMemberCount()
     {
         int totalMemberCount = 0;
-        
-        string[] stateNames = {
-            "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
-            "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland",
-            "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "NewHampshire", "NewJersey",
-            "NewMexico", "NewYork", "NorthCarolina", "NorthDakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "RhodeIsland", "SouthCarolina",
-            "SouthDakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "WestVirginia", "Wisconsin", "Wyoming"
-        };
-        // string[] stateNames = {"Alabama","Alaska","Arizona","Arkansas"};
+
         string[] stateCode = {
             "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
             "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
@@ -101,27 +93,57 @@ class Program
 
         MakeCsvFile("information.csv","State,Shops,Website");
         MakeCsvFile("shops.csv","Name,Phone,Address,Facebook,State");
-        for (int i = 0; i<stateNames.Length; i++)
+        using var httpClient = new HttpClient();
+        var website = "http://www.alabamaantiquetrail.com/";
+        var response = await httpClient.GetStringAsync(website);
+        var parser = new HtmlParser();
+        var document = await parser.ParseDocumentAsync(response);
+        var stateWebsiteList = document.QuerySelector("strong:contains('State Trails')")?.ParentElement?.QuerySelectorAll("a");
+        if(stateWebsiteList==null)
+        {
+            return totalMemberCount;
+        }
+        var links = stateWebsiteList.Where(x => x.GetAttribute("href").Contains(".com"));
+        bool virginia = true;
+        int counter = 0;
+        foreach (var link in links)
         {   
-            Console.WriteLine($"Getting total member count from {stateNames[i]}'s site...");
-            using var httpClient = new HttpClient();
-            var website = $"http://{stateNames[i].ToLower()}antiquetrail.com";
-            var response = await httpClient.GetStringAsync(website);
-            
-            var parser = new HtmlParser();
-            var document = await parser.ParseDocumentAsync(response);
-            ProcessStateWebsite(document,stateNames[i],stateCode[i]);
+            var href = link.GetAttribute("href");
+            Console.WriteLine($"Getting total member count from {href}");
+            response = await httpClient.GetStringAsync(href);
+            document = await parser.ParseDocumentAsync(response);
+            var stateName = "unavailable";
+            if(href!=null)
+            {
+                stateName = ExtractStateName(href);
+            }
+            if(stateName=="Virginia")
+            {
+                if(virginia)
+                {
+                    stateName="WestVirginia";
+                }
+                else
+                {
+                    virginia=true;
+                }
+            }
+            ProcessStateWebsite(document,stateName,stateCode[counter]);
             var memberText = document.QuerySelector("h1:contains('members on')")?.TextContent;
             int memberNumber;
             if(memberText==null){
-                Console.WriteLine($"error encounted in {stateNames[i]}");
+                Console.WriteLine($"error encounted in {href}");
                 memberNumber = 0;
             }else{
                 memberNumber = ExtractMemberNumber(memberText);
                 Console.WriteLine($"total members present: {memberNumber}");
             }
-            WriteToCsv(stateNames[i], memberNumber, website);
+            if(href!=null)
+            {
+                WriteToCsv(stateName, memberNumber, href);
+            }
             totalMemberCount += memberNumber;
+            counter++;
         }
 
         return totalMemberCount;
@@ -145,15 +167,12 @@ class Program
         if (File.Exists(csvFilePath))
         {
             File.Delete(csvFilePath);
-            Console.WriteLine("CSV file cleared.");
         }
 
         using (StreamWriter writer = new StreamWriter(csvFilePath, true))
         {
             writer.WriteLine(headings);
         }
-
-        Console.WriteLine("Headings written to CSV file.");
     }
 
     static void WriteToCsv(string stateName, int number, string website)
@@ -181,7 +200,7 @@ class Program
         {
             // Console.WriteLine(table.OuterHtml);
             total++;
-            ProcessTable((IHtmlDivElement)table,stateName);
+            ProcessTable((IHtmlDivElement)table,stateName,stateCode);
             // if(total>0)
             // {
             //     break;
@@ -189,11 +208,12 @@ class Program
         }
     }
 
-    static void ProcessTable(IHtmlDivElement table, string stateName)
+    static void ProcessTable(IHtmlDivElement table, string stateName, string stateCode)
     {
-        var name = table.ParentElement?.QuerySelectorAll("div a strong")[0].TextContent;
-        if(name==null){
-            name="unavailable";
+        var name_to_check = table.ParentElement?.QuerySelectorAll("div a strong")[0].TextContent;
+        var name = "unavailable";
+        if(name_to_check!=null){
+            name = RemoveExtraSpaces(name_to_check);
         }
 
         var phones = table.ParentElement?.QuerySelectorAll("div a");
@@ -210,17 +230,17 @@ class Program
         }
         
 
-        var addresses = table.ParentElement?.QuerySelectorAll("div br");
+        var addresses = table.ParentElement?.QuerySelectorAll($"div:contains(', {stateCode}')");
         var address = "unavailable";
         if(addresses!=null)
         {
             foreach(var x in addresses)
             {
-                var temp_addr_text = x.ParentElement?.TextContent.Trim();
+                var temp_addr_text = x.TextContent.Trim();
                 if(temp_addr_text!=null)
                 {
                     address = RemoveExtraSpaces(temp_addr_text);    
-                }   
+                }
             }
         }
         
@@ -271,5 +291,29 @@ class Program
             return "unavailable";
         }
         
+    }
+
+    static string ExtractStateName(string stateName)
+    {
+        string[] stateNames = {
+            "Alabama", "Alaska", "Arizona", "Arkansas", "California",
+            "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
+            "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa",
+            "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland",
+            "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri",
+            "Montana", "Nebraska", "Nevada", "NewHampshire", "NewJersey",
+            "NewMexico", "NewYork", "NorthCarolina", "NorthDakota", "Ohio",
+            "Oklahoma", "Oregon", "Pennsylvania", "RhodeIsland", "SouthCarolina",
+            "SouthDakota", "Tennessee", "Texas", "Utah", "Vermont",
+            "Virginia", "Washington", "WestVirginia", "Wisconsin", "Wyoming"};
+
+        foreach (string state in stateNames)
+        {
+            if (stateName.Contains(state, StringComparison.OrdinalIgnoreCase))
+            {
+                return state;
+            }
+        }
+        return "Unavailable";
     }
 }
