@@ -99,11 +99,10 @@ class Program
             "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
         };
 
-        MakeCsvFile();
-        CreateFolder();
+        MakeCsvFile("information.csv","State,Shops,Website");
+        MakeCsvFile("shops.csv","Name,Phone,Address,Facebook,State");
         for (int i = 0; i<stateNames.Length; i++)
         {   
-            CreateFile(stateNames[i]);
             Console.WriteLine($"Getting total member count from {stateNames[i]}'s site...");
             using var httpClient = new HttpClient();
             var website = $"http://{stateNames[i].ToLower()}antiquetrail.com";
@@ -139,9 +138,9 @@ class Program
         return number;
     }
 
-    static void MakeCsvFile()
+    static void MakeCsvFile(string fileName, string headings)
     {
-        string csvFilePath = "information.csv";
+        string csvFilePath = fileName;
 
         if (File.Exists(csvFilePath))
         {
@@ -151,7 +150,7 @@ class Program
 
         using (StreamWriter writer = new StreamWriter(csvFilePath, true))
         {
-            writer.WriteLine("State,MemberCount,Website");
+            writer.WriteLine(headings);
         }
 
         Console.WriteLine("Headings written to CSV file.");
@@ -159,7 +158,7 @@ class Program
 
     static void WriteToCsv(string stateName, int number, string website)
     {
-        string csvFilePath = "output.csv";
+        string csvFilePath = "information.csv";
 
         //writing to csv
         using (StreamWriter writer = new StreamWriter(csvFilePath, true))
@@ -234,22 +233,11 @@ class Program
         }
         
 
-        string csvFilePath = $"State Antique Shop Data/{stateName}_data.csv";
+        string csvFilePath = "shops.csv";
         //writing to csv
         using (StreamWriter writer = new StreamWriter(csvFilePath, true))
         {
-            writer.WriteLine($"{name},{phone},{address},{facebook}");
-        }
-    }
-
-    static void CreateFolder()
-    {
-        string folderName = "State Antique Shop Data";
-
-        string relativeFolderPath = Path.Combine(Directory.GetCurrentDirectory(), folderName);
-        if (!Directory.Exists(relativeFolderPath))
-        {
-            Directory.CreateDirectory(relativeFolderPath);
+            writer.WriteLine($"{name},{phone},{address},{facebook},{stateName}");
         }
     }
 
@@ -283,26 +271,5 @@ class Program
             return "unavailable";
         }
         
-    }
-
-    static void CreateFile(string state)
-    {
-        string fileName = $"{state}_data.csv";
-        string folderPath = Path.Combine(Directory.GetCurrentDirectory(),"State Antique Shop Data");
-        string filePath = Path.Combine(folderPath,fileName);
-        if (!File.Exists(filePath))
-        {
-            File.Create(filePath).Close(); // Create and immediately close the file
-            Console.WriteLine($"CSV file '{fileName}' created in '{folderPath}'.");
-        }
-        else
-        {
-            File.Delete(filePath);
-        }
-        
-        using (StreamWriter writer = new StreamWriter(filePath, true))
-        {
-            writer.WriteLine("Name,Phone,Address,Facebook");
-        }
     }
 }
